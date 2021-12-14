@@ -1,130 +1,230 @@
 import matplotlib.pylab as plt
 import math
 import random
+import numpy as np
 
-step_size = 0.02
-neighborhood_length = 0.081
-max_depth = 3 # this is how long our camera stick is
-goal_reached = False
+# pitch, yaw, displacement, roll,
+def get_pitch(q):
+    return q[0]
 
-# depth, yaw, pitch, rotation
-qinit = [0, 0, 0, 0, 0, None]
-qgoal = [1, 1, 1, 1, None, None]
+def get_yaw(q):
+    return q[1]
 
-# depth, yaw, pitch, rotation, cost, parent
-visited_configs = [[qinit[0], qinit[1], qinit[2], qinit[3], 0, None]]
+def get_depth(q):
+    return q[2]
 
-def get_random_valid_position():
-    while True:
-        p0 = random.random() * max_depth
-        p1 = 2 * math.pi * random.random() - math.pi
-        p2 = 2 * math.pi * random.random() - math.pi
-        p3 = 2 * math.pi * random.random() - math.pi
-        q = [p0, p1, p2, p3, None, -1]
-        if is_valid_config(q):
-            return q
+def get_roll(q):
+    return q[3]
 
-def get_closest_config(q):
-    best_coord_index = None
-    best_coord_distance = 6 * math.pi + max_depth
-    for i in range(len(visited_configs)):
-        this_distance = abs(visited_configs[i][0] - q[0]) + \
-                        abs(visited_configs[i][1] - q[1]) + \
-                        abs(visited_configs[i][2] - q[2]) + \
-                        abs(visited_configs[i][3] - q[3])
-        if this_distance < best_coord_distance:
-            best_coord_distance = this_distance
-            best_coord_index = i
-    return visited_configs[best_coord_index]
+def get_x(q):
+    return q[4]
 
-def get_step_toward(qfrom, qto):
-    qstep = [None, None, None, None, None, -1]
-    for i in range(0, 4):
-        if qfrom[i] > qto[i] + step_size:
-            qstep[i] = qfrom[i] - step_size
-        elif qfrom[i] < qto[i] - step_size:
-            qstep[i] = qfrom[i] + step_size
-        else:
-            qstep[i] = qto[i]
-    return qstep
+def get_y(q):
+    return q[5]
 
-def is_valid_path(qfrom, qto):
-    return True
+def get_z(q):
+    return q[6]
 
-def is_valid_config(q):
-    return True
+def get_cost(q):
+    return q[7]
 
-def connect(qnew):
-    for i in range(len(visited_configs)):
-        distance = get_distance(qnew, visited_configs[i])
-        if distance < neighborhood_length:
-            if qnew[4] is None or qnew[4] > visited_configs[i][4] + distance:
-                qnew[4] = visited_configs[i][4] + distance
-                qnew[5] = i
-    visited_configs.append(qnew)
-    index = len(visited_configs) - 1
-    update_neighbors(qnew, index)
-    return
+def get_parent(q):
+    return q[8]
 
-def update_neighbors(q, index):
-    for i in range(len(visited_configs)):
-        distance = get_distance(q, visited_configs[i])
-        if distance < neighborhood_length:
-            if q[4] + distance < visited_configs[i][4]:
-                visited_configs[i][4] = q[4] + distance
-                visited_configs[i][5] = index
+def get_index(q):
+    return q[9]
 
+## TYLERS METHODS
 
-def get_index_of(q):
-    for i in range(len(visited_configs)):
-        if visited_configs[i] is q:
-            return i
+def AofDH(x, DH):
+  r = DH[x,0]
+  d = DH[x,1]
+  a = DH[x,2]
+  q = DH[x,3]
 
-# returns the distance between two configuration spaces
-def get_distance(q1, q2):
-    return abs(q1[0] - q2[0]) + abs(q1[1] - q2[1]) + abs(q1[2] - q2[2]) + abs(q1[3] - q2[3])
+  A = np.array([[np.cos(q), -np.sin(q)*np.cos(a), np.sin(q)*np.sin(a), r*np.cos(q)],
+                [np.sin(q), np.cos(q)*np.cos(a), -np.cos(q)*np.sin(a), r*np.sin(q)],
+                [0, np.sin(a), np.cos(a), d],
+                [0, 0, 0, 1]])
+  return A
 
+def get_endpoints(q):
+# This code takes in 3 values: q1, q2, and q3 and returns the endpoint locations of each vector, accesible as endpts
 
-def rtt_star():
+  q1 = q[0] #pitch
+  q2 = q[1] #yaw
+  q3 = q[2] #displacement
+  q4 = q[3] #roll
+
+  r = np.array([0,0,5 + q3, 0, .5])
+  a = np.array([-np.pi/2, -np.pi/2, -np.pi/2, 0, 0])
+  d = np.array([0,0,0, 0, 0])
+  q = np.array([q1, q2, 0, q4, 0])
+
+  DH = np.array([r, d, a, q])
+  DH = DH.transpose()
+
+  A1 = AofDH(0,DH)
+  A2 = AofDH(1,DH)
+  A3 = AofDH(2,DH)
+  A4 = AofDH(3,DH)
+  A5 = AofDH(4,DH)
+
+  A10 = A1
+  A20 = np.dot(A1,A2)
+  A30 = np.dot(A20,A3)
+  A40 = np.dot(A30,A4)
+  A50 = np.dot(A40,A5)
+
+  endpts = np.array([A10[:,3],A20[:,3],A30[:,3],A40[:,3],A50[:,3]])
+  return endpts
+
+## KAANS METHODS
+def rrt_star():
     global goal_reached
-    for i in range(3500):
-        print(i)
-        # get a random config
-        qrand = get_random_valid_position()
-        if goal_reached is False and random.random() < 0.1:
-            qrand = qgoal
-        # if we can expand a step toward this random config, make a point there
-        qnearest = get_closest_config(qrand)
+    for i in range(n):
+        qrand = get_random_config()
+        qnearest = get_nearest_config(qrand)
         qnew = get_step_toward(qnearest, qrand)
-        if is_valid_path(qnearest, qnew):
+        qnew[7] = get_distance(qnearest, qnew) + get_cost(qnearest)
+        if not collides(qnew):
+            visited_configs.append(qnew)
             connect(qnew)
-            if not goal_reached and is_goal_in_visited():
+            if not goal_reached and get_found_goal():
                 goal_reached = True
-                print_path(qnew)
-    for i in visited_configs:
-        if qgoal[0] == i[0] and qgoal[1] == i[1] and qgoal[2] == i[2] and qgoal[3] == i[3]:
-            print_path(i)
-
-def is_goal_in_visited():
-    for i in visited_configs:
-        if qgoal[0] == i[0] and qgoal[1] == i[1] and qgoal[2] == i[2] and qgoal[3] == i[3]:
-            return True
+                print_path(get_found_goal())
+                original_cost = str(get_cost(get_found_goal()))
+                print("original cost is " + original_cost + "\n")
+    if get_found_goal():
+        print_path(get_found_goal())
+        print("original cost was " + original_cost)
+        print("new cost is " + str(get_cost(get_found_goal())))
+        return
+    else:
+        print(f"no goal was found after {n} iterations")
 
 def print_path(q):
-    print("PRINTING PATH")
-    ax = plt.axes(projection='3d')
-    xvals = []
-    yvals = []
-    zvals = []
-    while q[5] is not None:
-        xvals.append(q[0])
-        yvals.append(q[1])
-        zvals.append(q[2])
-        print(f"[ {round(q[0], 2)}, {round(q[1], 2)}, {round(q[2], 2)}, {round(q[3], 2)}, {round(q[4], 2)}, {round(q[5], 2)}]")
-        q = visited_configs[q[5]]
-    print(qinit)
-    ax.scatter(xvals, yvals, zvals)
-    plt.show()
+    index_list = []
+    print("Found goal! Printing path")
+    while get_parent(q) >= 0:
+        index_list.append(q[9])
+        print(f"[{round(q[4], 2)}, {round(q[5], 2)}, {round(q[6], 2)}, {round(q[7], 2)}]")
+        q = visited_configs[get_parent(q)]
+    index_list.append(q[9])
+    print("path is " + str(index_list))
+
+def get_found_goal():
+    for item in visited_configs:
+        if get_distance(item, qgoal) < threshold:
+            return item
+    return False
 
 
-rtt_star()
+def get_neighbors(q):
+    neighbors = []
+    for item in visited_configs:
+        if get_distance(item, q) < neighborhood_length:
+            neighbors.append(item)
+    return neighbors
+
+
+def connect(q):
+    neighbors = get_neighbors(q)
+    # Figure out the actual best path to get to q
+    for i in range(len(neighbors)):
+        if get_cost(neighbors[i]) + get_distance(q, neighbors[i]) < get_cost(q):
+            visited_configs[q[9]][7] = get_cost(neighbors[i]) + get_distance(q, neighbors[i])
+            visited_configs[q[9]][8] = get_index(neighbors[i])
+            q = visited_configs[q[9]]
+    # Update any of it's neighbors with this new cost
+    for neighbor in neighbors:
+        if get_cost(neighbor) > get_cost(q):
+            connect_neighbor(neighbor, q)
+
+
+def connect_neighbor(neighbor, q):
+    if get_cost(neighbor) > get_cost(q) + get_distance(q, neighbor):
+        visited_configs[neighbor[9]][7] = get_cost(q) + get_distance(q, neighbor)
+        visited_configs[neighbor[9]][8] = get_index(q)
+        neighbor = visited_configs[neighbor[9]]
+        for n in get_neighbors(neighbor):
+            connect_neighbor(n, neighbor)
+
+
+# Take a step toward the configspace of the new item
+def get_step_toward(qfrom, qto):
+    qstep = []
+    for i in range(4):
+        qstep.append(qto[i])
+    endpoint = get_endpoints(qstep)[4]
+    qstep.append(endpoint[0])  # X
+    qstep.append(endpoint[1])  # Y
+    qstep.append(endpoint[2])  # Z
+    tries = 0
+    while get_distance(qfrom, qstep) > step_size and tries < 20:
+        tries = tries + 1
+        for i in range(4):
+            qstep[i] = (qfrom[i] + qstep[i]) / 2
+        endpoint = get_endpoints(qstep)[4]
+        qstep[4] = endpoint[0]  # X
+        qstep[5] = endpoint[1]  # Y
+        qstep[6] = endpoint[2]  # Z
+    qstep.append(-1)  # Cost
+    qstep.append(get_index(qfrom))  # Parent
+    qstep.append(get_index(qto))  # Index
+
+    return qstep
+
+# get the worldspace distance
+def get_distance(q1, q2):
+    return abs(get_x(q1) - get_x(q2)) + \
+           abs(get_y(q1) - get_y(q2)) + \
+           abs(get_z(q1) - get_z(q2))
+
+# get nearest config in worldspace
+def get_nearest_config(q):
+    qclosest = visited_configs[0]
+    for item in visited_configs:
+        if get_distance(item, q) < get_distance(qclosest, q):
+            qclosest = item
+    return qclosest
+
+def get_random_config():
+    pitch = 2 * math.pi * random.random() - math.pi
+    yaw = 2 * math.pi * random.random() - math.pi
+    depth = random.random() * max_depth
+    roll = 2 * math.pi * random.random() - math.pi
+    q = [pitch, yaw, depth, roll]
+    endpoints = get_endpoints(q)[4]
+    q.append(endpoints[0])  # X
+    q.append(endpoints[1])  # Y
+    q.append(endpoints[2])  # Z
+    q.append(-1)  # Cost
+    q.append(-1)  # Parent
+    q.append(len(visited_configs))  # Index
+    return q
+
+def collides(q):
+    return False
+
+### THESE NEXT 7 LINES ARE THE CONFIGURABLE PARTS
+step_size = 0.2 # How close in worldspace the points need to be in order to create a new point at that location
+neighborhood_length = 0.2 # After connecting a point, how close in worldspace do its neighbors need to be for us to update them
+max_depth = 3  # this is how long our camera stick is
+threshold = 0.8 # This is how close we need to get to our goal in order to say we've reached it. worldspace
+n = 1000 # This is the number of iterations we'll go through
+qinit = [0, 0, 0, 0] # The starting point in configspace
+qgoal = [0, 0, 0, 0, 6.20, 0.4, 0.7, 0, 0, 0] # Change the middle three numbers to change the goal worldspace. All other numbers here are ignored
+
+init_endpoints = get_endpoints(qinit)[4]
+qinit.append(init_endpoints[0])  # X
+qinit.append(init_endpoints[1])  # Y
+qinit.append(init_endpoints[2])  # Z
+qinit.append(0)  # Cost
+qinit.append(-1)  # Parent
+qinit.append(0)  # Index
+visited_configs = [qinit]
+goal_reached = False
+
+
+rrt_star()
