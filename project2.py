@@ -48,46 +48,176 @@ def AofDH(x, DH):
                 [0, 0, 0, 1]])
   return A
 
+
+def collides(q, obstacles):
+    return False
+    #return check_collision(get_endpoints(q), obstacles)
+
+
+def check_collision(endpts, obstacles):
+    end = endpts[3][0:3]  # endpoints of probe
+    x_end = end[0]
+    y_end = end[1]
+    z_end = end[2]
+
+    x = np.linspace(0, x_end, 1000)
+    y = np.linspace(0, y_end, 1000)
+    z = np.linspace(0, z_end, 1000)
+
+    cam = endpts[4][0:3]  # endpoints of camera point
+    x_cam = cam[0]
+    y_cam = cam[1]
+    z_cam = cam[2]
+
+    x = np.concatenate((x, np.linspace(x_end, x_cam, 100)))
+    y = np.concatenate((y, np.linspace(y_end, y_cam, 100)))
+    z = np.concatenate((z, np.linspace(z_end, z_cam, 100)))
+
+    x_ob = obstacles[0]
+    y_ob = obstacles[1]
+    z_ob = obstacles[2]
+
+    i = x.size - 1
+    check = False
+
+    while (i >= 0 and check != True):
+        diff = min(np.sqrt((x_ob - x[i]) ** 2 + (y_ob - y[i]) ** 2 + (z_ob - z[i]) ** 2))
+
+        if diff < 0.05:
+            check = True
+            return check
+        else:
+            i = i - 1
+
+    return check
+
+
 def get_endpoints(q):
-# This code takes in 3 values: q1, q2, and q3 and returns the endpoint locations of each vector, accesible as endpts
 
-  q1 = q[0] #pitch
-  q2 = q[1] #yaw
-  q3 = q[2] #displacement
-  q4 = q[3] #roll
+    q1 = q[0]  # pitch
+    q2 = q[1]  # yaw
+    q3 = q[2]  # displacement
+    q4 = q[3]  # roll
 
-  r = np.array([0,0,5 + q3, 0, .5])
-  a = np.array([-np.pi/2, -np.pi/2, -np.pi/2, 0, 0])
-  d = np.array([0,0,0, 0, 0])
-  q = np.array([q1, q2, 0, q4, 0])
+    r = np.array([0, 0, 5 + q3, 0, .5])
+    a = np.array([-np.pi / 2, -np.pi / 2, -np.pi / 2, 0, 0])
+    d = np.array([0, 0, 0, 0, 0])
+    q = np.array([q1, q2, 0, q4, 0])
 
-  DH = np.array([r, d, a, q])
-  DH = DH.transpose()
+    DH = np.array([r, d, a, q])
+    DH = DH.transpose()
+    # print(DH)
+    # print(DH)
 
-  A1 = AofDH(0,DH)
-  A2 = AofDH(1,DH)
-  A3 = AofDH(2,DH)
-  A4 = AofDH(3,DH)
-  A5 = AofDH(4,DH)
+    A1 = AofDH(0, DH)
+    A2 = AofDH(1, DH)
+    A3 = AofDH(2, DH)
+    A4 = AofDH(3, DH)
+    A5 = AofDH(4, DH)
 
-  A10 = A1
-  A20 = np.dot(A1,A2)
-  A30 = np.dot(A20,A3)
-  A40 = np.dot(A30,A4)
-  A50 = np.dot(A40,A5)
+    A10 = A1
+    A20 = np.dot(A1, A2)
+    A30 = np.dot(A20, A3)
+    A40 = np.dot(A30, A4)
+    A50 = np.dot(A40, A5)
 
-  endpts = np.array([A10[:,3],A20[:,3],A30[:,3],A40[:,3],A50[:,3]])
-  return endpts
+    endpts = np.array([A10[:, 3], A20[:, 3], A30[:, 3], A40[:, 3], A50[:, 3]])
+    return endpts
+
+
+x = np.linspace(0, 2 * np.pi, 21)
+pts = np.zeros((x.size, 3))
+
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+for i in range(x.size):
+    q = np.array([np.pi / 8, np.pi / 3, 5, x[i]])
+    pt = get_endpoints(q)
+    ax.scatter(pt[0][0], pt[0][1], pt[0][2])
+    ax.scatter(pt[1][0], pt[1][1], pt[1][2])
+    ax.scatter(pt[2][0], pt[2][1], pt[2][2])
+    ax.scatter(pt[3][0], pt[3][1], pt[3][2])
+    ax.scatter(pt[4][0], pt[4][1], pt[4][2])
+
+# get_endpoints(np.array([0, 0, 0, 3 * np.pi / 2]))
+
+
+# making box
+def make_box(A, B, G, X, Y, Z):
+    y = np.arange(0, 2, .1)
+    z = np.arange(0, 2, .1)
+    mesh = np.meshgrid(y, z)
+    base = np.array([np.zeros((y.size)), mesh[0][0], mesh[1][0], np.ones((y.size))])
+    for i in range(y.size - 2):
+        new = np.array([np.zeros((y.size)), mesh[0][i + 1], mesh[1][i + 1], np.ones((y.size))])
+        base = np.concatenate((base, new), axis=1)
+
+    x = np.arange(0, 1, .1)
+    z = np.arange(0, 2, .1)
+    mesh = np.meshgrid(x, z)
+    for i in range(z.size - 1):
+        new = np.array([mesh[0][i], np.zeros((x.size)), mesh[1][i], np.ones((x.size))])
+        base = np.concatenate((base, new), axis=1)
+        new = np.array([mesh[0][i], 2 * np.ones((x.size)), mesh[1][i], np.ones((x.size))])
+        base = np.concatenate((base, new), axis=1)
+
+    x = np.arange(0, 1, .1)
+    y = np.arange(0, 2, .1)
+    mesh = np.meshgrid(x, z)
+    for i in range(z.size - 1):
+        new = np.array([mesh[0][i], mesh[1][i], np.zeros((x.size)), np.ones((x.size))])
+        base = np.concatenate((base, new), axis=1)
+        new = np.array([mesh[0][i], mesh[1][i], 2 * np.ones((x.size)), np.ones((x.size))])
+        base = np.concatenate((base, new), axis=1)
+
+    R = np.array([[np.cos(A) * np.cos(B), np.cos(A) * np.sin(B) * np.sin(G) - np.sin(A) * np.cos(G),
+                   np.cos(A) * np.sin(B) * np.cos(G) + np.sin(A) * np.sin(G), X],
+                  [np.sin(A) * np.cos(B), np.sin(A) * np.sin(B) * np.sin(G) + np.cos(A) * np.cos(G),
+                   np.sin(A) * np.sin(B) * np.cos(G) - np.cos(A) * np.sin(G), Y],
+                  [-np.sin(B), np.cos(B) * np.sin(G), np.cos(B) * np.cos(G), Z],
+                  [0, 0, 0, 1]])
+
+    box = np.dot(R, base)
+    box = box[0:3]
+    goal = np.dot(R, np.transpose(np.array([0, 1, 1, 1])))
+    return box, goal
+
+
+base, goal = make_box(0, 0, 0, 0, 0, 0)
+
+ax.scatter(base[0], base[1], base[2])
+ax.scatter(goal[0], goal[1], goal[2], 'r')
+# ax.set_xlim([0, 10])
+# ax.set_ylim([0, 10])
+# ax.set_zlim([0, 10])
+
+print(check_collision(get_endpoints(q), base))
+
 
 ## KAANS METHODS
-def rrt_star():
-    global goal_reached
+def rrt_star(qinit, goal, obstacles):
+    init_endpoints = get_endpoints(qinit)[4]
+    qinit.append(init_endpoints[0])  # X
+    qinit.append(init_endpoints[1])  # Y
+    qinit.append(init_endpoints[2])  # Z
+    qinit.append(0)  # Cost
+    qinit.append(-1)  # Parent
+    qinit.append(0)  # Index
+    global visited_configs
+    visited_configs = [qinit]
+    goal_reached = False
+    global qgoal
+    qgoal[5] = goal[0]
+    qgoal[6] = goal[1]
+    qgoal[7] = goal[2]
+
     for i in range(n):
+        print("Iteration " + str(i))
         qrand = get_random_config()
         qnearest = get_nearest_config(qrand)
         qnew = get_step_toward(qnearest, qrand)
         qnew[7] = get_distance(qnearest, qnew) + get_cost(qnearest)
-        if not collides(qnew):
+        if not collides(qnew, obstacles):
             visited_configs.append(qnew)
             connect(qnew)
             if not goal_reached and get_found_goal():
@@ -204,27 +334,16 @@ def get_random_config():
     q.append(len(visited_configs))  # Index
     return q
 
-def collides(q):
-    return False
+visited_configs = []
+qgoal = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Change the middle three numbers to change the goal worldspace. All other numbers here are ignored
+
 
 ### THESE NEXT 7 LINES ARE THE CONFIGURABLE PARTS
-step_size = 0.2 # How close in worldspace the points need to be in order to create a new point at that location
-neighborhood_length = 0.2 # After connecting a point, how close in worldspace do its neighbors need to be for us to update them
+step_size = 1.5  # How close in worldspace the points need to be in order to create a new point at that location
+neighborhood_length = 1.5  # After connecting a point, how close in worldspace do its neighbors need to be for us to update them
 max_depth = 3  # this is how long our camera stick is
-threshold = 0.8 # This is how close we need to get to our goal in order to say we've reached it. worldspace
-n = 1000 # This is the number of iterations we'll go through
-qinit = [0, 0, 0, 0] # The starting point in configspace
-qgoal = [0, 0, 0, 0, 6.20, 0.4, 0.7, 0, 0, 0] # Change the middle three numbers to change the goal worldspace. All other numbers here are ignored
+threshold = 3.8  # This is how close we need to get to our goal in order to say we've reached it. worldspace
+n = 2000  # This is the number of iterations we'll go through
 
-init_endpoints = get_endpoints(qinit)[4]
-qinit.append(init_endpoints[0])  # X
-qinit.append(init_endpoints[1])  # Y
-qinit.append(init_endpoints[2])  # Z
-qinit.append(0)  # Cost
-qinit.append(-1)  # Parent
-qinit.append(0)  # Index
-visited_configs = [qinit]
-goal_reached = False
-
-
-rrt_star()
+obstacles, goal = make_box(0, 0, 0, 4.12, -1, -8.7)
+rrt_star([0,0,0,0], goal, obstacles)
