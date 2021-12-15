@@ -38,7 +38,6 @@ def collides(q, obstacles):
     #return False
     return check_collision(get_endpoints(q), obstacles)
 
-## TYLERS METHODS
 def AofDH(x, DH):
   r = DH[x,0]
   d = DH[x,1]
@@ -164,7 +163,7 @@ def check_collision(endpts, obstacles):
 
     return check
 
-## KAANS METHODS
+
 def rrt_star(qinit, goal, obstacles):
     init_endpoints = get_endpoints(qinit)[4]
     qinit.append(init_endpoints[0])  # X
