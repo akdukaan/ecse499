@@ -38,6 +38,7 @@ def collides(q, obstacles):
     #return False
     return check_collision(get_endpoints(q), obstacles)
 
+## TYLERS METHODS
 def AofDH(x, DH):
   r = DH[x,0]
   d = DH[x,1]
@@ -163,7 +164,7 @@ def check_collision(endpts, obstacles):
 
     return check
 
-
+## KAANS METHODS
 def rrt_star(qinit, goal, obstacles):
     init_endpoints = get_endpoints(qinit)[4]
     qinit.append(init_endpoints[0])  # X
@@ -227,8 +228,6 @@ def get_found_goal():
     closest = None
     for item in visited_configs:
         if get_distance(item, qgoal) < threshold:
-            print("qgoal is " + str(qgoal))
-            print("item is " + str(item))
             if closest is None or get_distance(item, qgoal) < get_distance(closest, qgoal):
                 closest = item
     return closest
@@ -334,5 +333,3 @@ n = 3000  # This is the number of iterations we'll go through
 obstacles, goal = make_box(math.pi/2, math.pi, 0, 4.12, 6.3, 7.7)
 print(goal)
 rrt_star([0,0,0,0], goal, obstacles)
-
-
